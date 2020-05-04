@@ -1,0 +1,6 @@
+model
+.workspace-config.json
+.ipynb_checkpoints
+__pycache__
+.tempfile
+

@@ -1,0 +1,4 @@
+
+> intel-people-counter-app@0.1.0 dev /home/workspace/webservice/ui
+> cross-env NODE_ENV=development webpack-dev-server --history-api-fallback --watch --hot --inline
+

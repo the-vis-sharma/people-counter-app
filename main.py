@@ -22,7 +22,6 @@
 
 import os
 import sys
-import time
 import numpy as np
 import socket
 import json
@@ -77,13 +76,14 @@ def connect_mqtt():
 
     return client
 
-def draw_masks(frame, result, width, height, prob_threshold):
+def draw_masks(frame, result, width, height, prob_threshold, last_frame_with_person):
     '''
     Draw semantic mask classes onto the frame.
     '''
     people = 0
     probabilities = result[0, 0, :, 2]
     out_frame = frame
+    x1 = None
     for index, probability in enumerate(probabilities):
         if probability > prob_threshold:
             people += 1
@@ -93,7 +93,7 @@ def draw_masks(frame, result, width, height, prob_threshold):
             out_frame = cv2.rectangle(frame, pt1, pt2, (0, 0, 255), 2)
             
     out_frame = cv2.resize(out_frame, (768, 432))
-    return out_frame, people
+    return out_frame, people, x1
 
 
 def infer_on_stream(args, client):
@@ -124,13 +124,14 @@ def infer_on_stream(args, client):
 
     ### TODO: Loop until stream is over ###
     total_duration = 0
-    duration = 0
     noPersonDetected = 0
     total_people = 0
-    prev_count = 0
     start_time = None
+    last_frame_with_person = None
+    last_count = None
+    last_x1 = 0
+    timer = 0
     while cap.isOpened():
-        total_duration += 1
         ### TODO: Read from the video capture ###
         flag, frame = cap.read()
         
@@ -152,11 +153,11 @@ def infer_on_stream(args, client):
             result = infer_network.get_output()
             ### TODO: Extract any desired stats from the results ###
                     
-            out_frame, people = draw_masks(frame, result, width, height, args.prob_threshold)
+            out_frame, people, x1 = draw_masks(frame, result, width, height, args.prob_threshold, last_frame_with_person)
             
             if start_time is None and people > 0:
-                start_time = time.time()
-                prev_count = people
+                start_time = timer
+                log.warning("time started: %s", timer)
             
             ### TODO: Calculate and send relevant information on ###
             ### current_count, total_count and duration to the MQTT server ###
@@ -165,23 +166,29 @@ def infer_on_stream(args, client):
 #             client.publish("person", json.dumps({"count": current_count, "total": total_count}))
 #             client.publish("person/duration", json.dumps("duration": duration))
             if people > 0:
-                duration += 1
                 noPersonDetected = 0
-                prev_count = people
+                last_frame_with_person = out_frame
+                last_count = people
+                last_x1 = x1
             else:
                 noPersonDetected += 1
+                    
+                if start_time is not None and noPersonDetected == 1:
+                    total_duration = timer - start_time
+                    log.warning("end time: %s", timer)
                 
-            if start_time is not None and noPersonDetected >= 10:
+                if last_frame_with_person is not None and last_x1 <= 0.75:
+                    out_frame = last_frame_with_person
+                    people = last_count
+                    
+            if start_time is not None and noPersonDetected >= 15:
                 total_people += 1
-                prev_count = 0
-                total_duration = time.time() - start_time
-                client.publish("person/duration", json.dumps({"duration": total_duration}))
+                log.warning("total duration: %s", int(total_duration))
+                client.publish("person/duration", json.dumps({"duration": int(total_duration)}))
+                total_infer_time = 0
                 start_time = None
                 people = 0
-                duration = 0
             
-            
-            log.warning("total duration: %s,\n Duration: %s", total_duration // 10, duration // 10)
             # client.publish("person", json.dumps({"count": people, "total": total_people}))
             client.publish("person", json.dumps({"count": people, "total": total_people}))
 
@@ -193,6 +200,8 @@ def infer_on_stream(args, client):
         
         if key_pressed == 27:
             break
+            
+        timer += 1
     # release the cam and destory any camera window
     cap.release()
     cv2.destroyAllWindows()

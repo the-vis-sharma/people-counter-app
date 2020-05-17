@@ -34,7 +34,7 @@ class Network:
     """
 
     def __init__(self):
-        ### TODO: Initialize any class variables desired ###
+        # Initialize any class variables desired
         self.plugin = None
         self.network = None
         self.input_blob = None
@@ -42,7 +42,7 @@ class Network:
         self.exec_network = None
 
     def load_model(self, model, device="CPU", cpu_extension=None):
-        ### TODO: Load the model ###
+        # Load the model
         # this will load Inference engine plugin
         self.plugin = IECore()
         
@@ -53,12 +53,12 @@ class Network:
         # convert IR into IENetwork
         self.network = IENetwork(model=model_xml, weights=model_bin)
         
-        ### TODO: Add any necessary extensions ###
+        # Add any necessary extensions
         # adding CPU extension if applicable
         if cpu_extension and "CPU" in device:
             self.plugin.add_extension(cpu_extension, device)
         
-        ### TODO: Check for supported layers ###
+        # Check for supported layers
         # getting all the supported layers by network
         supported_layers = self.plugin.query_network(network=self.network, device_name="CPU")
         # filter unsupported layers
@@ -79,21 +79,21 @@ class Network:
         return
 
     def get_input_shape(self):
-        ### TODO: Return the shape of the input layer ###
+        # Return the shape of the input layer
         input_shape = self.network.inputs[self.input_blob].shape
         return input_shape
 
     def exec_net(self, image):
-        ### TODO: Start an asynchronous request ###
+        # Start an asynchronous request
         self.exec_network.start_async(request_id = 0, inputs={self.input_blob: image})
         return
 
     def wait(self):
-        ### TODO: Wait for the request to be complete. ###
+        # Wait for the request to be complete.
         status = self.exec_network.requests[0].wait(-1)
         return status
 
     def get_output(self):
-        ### TODO: Extract and return the output results
+        # Extract and return the output results
         output = self.exec_network.requests[0].outputs[self.output_blob]
         return output

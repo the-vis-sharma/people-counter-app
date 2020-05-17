@@ -70,16 +70,12 @@ def build_argparser():
 
 
 def connect_mqtt():
-    ### TODO: Connect to the MQTT client ###
     client = mqtt.Client()
     client.connect(MQTT_HOST, MQTT_PORT, MQTT_KEEPALIVE_INTERVAL)
 
     return client
 
-def draw_masks(frame, result, width, height, prob_threshold, last_frame_with_person):
-    '''
-    Draw semantic mask classes onto the frame.
-    '''
+def draw_masks(frame, result, width, height, prob_threshold):
     people = 0
     probabilities = result[0, 0, :, 2]
     out_frame = frame
@@ -110,11 +106,11 @@ def infer_on_stream(args, client):
     # Set Probability threshold for detections
     prob_threshold = args.prob_threshold
 
-    ### TODO: Load the model through `infer_network` ###
+    # Load the model through `infer_network`
     infer_network.load_model(model=args.model, cpu_extension=args.cpu_extension)
     net_input_shape = infer_network.get_input_shape()
     
-    ### TODO: Handle the input stream ###
+    # Handle the input stream
     cap = cv2.VideoCapture(args.input)
     cap.open(args.input)
     
@@ -122,7 +118,7 @@ def infer_on_stream(args, client):
     width = int(cap.get(3))
     height = int(cap.get(4))
 
-    ### TODO: Loop until stream is over ###
+    # Loop until stream is over
     total_duration = 0
     noPersonDetected = 0
     total_people = 0
@@ -132,39 +128,33 @@ def infer_on_stream(args, client):
     last_x1 = 0
     timer = 0
     while cap.isOpened():
-        ### TODO: Read from the video capture ###
+        # Read from the video capture
         flag, frame = cap.read()
         
         if not flag:
             break
         key_pressed = cv2.waitKey(60)
         
-        ### TODO: Pre-process the image as needed ###
+        # Pre-process the image as needed
         p_frame = cv2.resize(frame, (net_input_shape[3], net_input_shape[2]))
         p_frame = p_frame.transpose(2, 0, 1)
         p_frame = p_frame.reshape(1, *p_frame.shape)
 
-        ### TODO: Start asynchronous inference for specified request ###
+        # Start asynchronous inference for specified request
         infer_network.exec_net(p_frame)
 
-        ### TODO: Wait for the result ###
+        # Wait for the result
         if infer_network.wait() == 0:
-            ### TODO: Get the results of the inference request ###
+            # Get the results of the inference request
             result = infer_network.get_output()
-            ### TODO: Extract any desired stats from the results ###
-                    
-            out_frame, people, x1 = draw_masks(frame, result, width, height, args.prob_threshold, last_frame_with_person)
+            
+            # Extract any desired stats from the results        
+            out_frame, people, x1 = draw_masks(frame, result, width, height, args.prob_threshold)
             
             if start_time is None and people > 0:
                 start_time = timer
-                log.warning("time started: %s", timer)
             
-            ### TODO: Calculate and send relevant information on ###
-            ### current_count, total_count and duration to the MQTT server ###
-            ### Topic "person": keys of "count" and "total" ###
-            ### Topic "person/duration": key of "duration" ###
-#             client.publish("person", json.dumps({"count": current_count, "total": total_count}))
-#             client.publish("person/duration", json.dumps("duration": duration))
+            # Calculate and send relevant information on current_count, total_count and duration to the MQTT server Topic "person": keys of "count" and "total" Topic "person/duration": key of "duration"
             if people > 0:
                 noPersonDetected = 0
                 last_frame_with_person = out_frame
@@ -175,28 +165,24 @@ def infer_on_stream(args, client):
                     
                 if start_time is not None and noPersonDetected == 1:
                     total_duration = timer - start_time
-                    log.warning("end time: %s", timer)
                 
                 if last_frame_with_person is not None and last_x1 <= 0.75:
                     out_frame = last_frame_with_person
                     people = last_count
                     
             if start_time is not None and noPersonDetected >= 15:
-                total_people += 1
-                log.warning("total duration: %s", int(total_duration))
-                client.publish("person/duration", json.dumps({"duration": int(total_duration)}))
-                total_infer_time = 0
+                total_people += last_count
+                client.publish("person/duration", json.dumps({"duration": total_duration}))
                 start_time = None
                 people = 0
             
-            # client.publish("person", json.dumps({"count": people, "total": total_people}))
             client.publish("person", json.dumps({"count": people, "total": total_people}))
 
-        ### TODO: Send the frame to the FFMPEG server ###
+        # Send the frame to the FFMPEG server
         sys.stdout.buffer.write(out_frame)
         sys.stdout.flush()
 
-        ### TODO: Write an output image if `single_image_mode` ###
+        # Write an output image if `single_image_mode`
         
         if key_pressed == 27:
             break

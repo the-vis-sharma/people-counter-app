@@ -111,8 +111,18 @@ def infer_on_stream(args, client):
     net_input_shape = infer_network.get_input_shape()
     
     # Handle the input stream
-    cap = cv2.VideoCapture(args.input)
-    cap.open(args.input)
+    inp = None
+    if args.input == 'CAM':
+        inp = 0
+    elif os.path.isfile(args.input):
+        inp = args.input
+    else:
+        log.error("This file not found in your system. Please make sure the file exists.")
+        exit(1)
+        
+        
+    cap = cv2.VideoCapture(inp)
+    cap.open(inp)
     
     # Grab the shape of the input 
     width = int(cap.get(3))

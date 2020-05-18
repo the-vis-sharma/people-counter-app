@@ -55,7 +55,7 @@ class Network:
         
         # Add any necessary extensions
         # adding CPU extension if applicable
-        if cpu_extension and "CPU" in device:
+        if cpu_extension and ("CPU" in device):
             self.plugin.add_extension(cpu_extension, device)
         
         # Check for supported layers

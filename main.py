@@ -41,7 +41,8 @@ MQTT_HOST = IPADDRESS
 MQTT_PORT = 3001
 MQTT_KEEPALIVE_INTERVAL = 60
 
-
+supported_img_ext = [".jpg", ".jpeg", ".png", ".bmp"]
+supported_vd_ext = [".mp4", ".avi"]
 def build_argparser():
     """
     Parse command line arguments.
@@ -112,10 +113,19 @@ def infer_on_stream(args, client):
     
     # Handle the input stream
     inp = None
+    single_image_model = False
     if args.input == 'CAM':
         inp = 0
     elif os.path.isfile(args.input):
-        inp = args.input
+        ext = os.path.splitext(args.input)[1]
+        if ext in supported_img_ext:
+            single_image_model = True
+            inp = args.input
+        elif ext in supported_vd_ext:
+            inp = args.input
+        else:
+            log.error("This file format not support yet.")
+            exit(1)
     else:
         log.error("This file not found in your system. Please make sure the file exists.")
         exit(1)
@@ -193,6 +203,8 @@ def infer_on_stream(args, client):
         sys.stdout.flush()
 
         # Write an output image if `single_image_mode`
+        if single_image_model:
+            cv2.imwrite("output" + ext, out_frame)
         
         if key_pressed == 27:
             break
